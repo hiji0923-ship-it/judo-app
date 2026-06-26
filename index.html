@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>越谷柔道会 管理システム</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:#f0ede8;min-height:100vh;color:#1a1a1a;font-size:14px}
@@ -162,10 +164,6 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#4a90d9}
 textarea{resize:vertical;line-height:1.6}
 .err{color:#c0392b;font-size:13px;margin-top:6px;display:none}
 
-/* ===== SCREEN SWITCH ===== */
-.screen{display:none}
-.screen.active{display:block}
-
 input::placeholder{color:rgba(255,255,255,0.3);}
 #screen-login input:focus{outline:none;border-color:rgba(184,146,42,0.6)!important;background:rgba(255,255,255,0.1)!important;}
 
@@ -233,9 +231,7 @@ input::placeholder{color:rgba(255,255,255,0.3);}
 </div>
 </div>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+<script>
 
 // ===== Firebase設定（ここを書き換えてください） =====
 const firebaseConfig = {
@@ -248,10 +244,10 @@ const firebaseConfig = {
 };
 // ===================================================
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-async function fbGet(p){try{const d=await getDoc(doc(db,...p.split('/')));return d.exists()?d.data():null;}catch(e){console.error(e);return null;}}
-async function fbSet(p,data){try{await setDoc(doc(db,...p.split('/')),data,{merge:true});}catch(e){console.error('save error',e);showNotice('保存に失敗しました','err');}}
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+async function fbGet(p){try{const parts=p.split('/');const d=await db.collection(parts[0]).doc(parts[1]).get();return d.exists?d.data():null;}catch(e){console.error(e);return null;}}
+async function fbSet(p,data){try{const parts=p.split('/');await db.collection(parts[0]).doc(parts[1]).set(data,{merge:true});}catch(e){console.error('save error',e);showNotice('保存に失敗しました','err');}}
 
 // ===== 定数 =====
 const BELT_COLORS = {
@@ -1434,10 +1430,12 @@ function renderMaster(){
 window.toggleDemo=async function(val){showDemo=val;await fbSet('app/settings',{showDemo:val});updateDemoSection();renderMaster();showNotice('設定を保存しました');};
 
 // ===== 起動 =====
+(async()=>{
 await loadAll();
 updateDemoSection();
 showScreen('login');
 showLoading(false);
+})();
 </script>
 </body>
 </html>
