@@ -1164,7 +1164,7 @@ window.addPlanItem=async function(catId){const inp=document.getElementById('pnew
 window.addPlanCat=async function(){const n=prompt('カテゴリ名を入力してください');if(!n||!n.trim())return;planCats.push({id:planNextCatId++,name:n.trim(),ci:planNextCatId%CAT_COLORS.length,items:[]});await savePlanCats();renderPlan();showNotice('追加しました');};
 
 // ===== カレンダー =====
-function renderCalendar(){
+function renderCalendarGrid(){
   const y=calY,m=calM;
   const firstDay=new Date(y,m-1,1).getDay();
   const days=new Date(y,m,0).getDate();
@@ -1184,6 +1184,11 @@ function renderCalendar(){
       +(duty?'<div style="font-size:10px;padding:1px 4px;border-radius:3px;background:#fef3c7;margin-top:2px">🔑'+duty.member+'</div>':'')
       +'</div>';
   }
+  const grid=document.getElementById('cal-grid');
+  if(grid)grid.innerHTML=cells;
+}
+function renderCalendar(){
+  const y=calY,m=calM;
   let html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">'
     +'<button class="btn" onclick="calY_M(-1)">◀</button>'
     +'<span style="font-size:16px;font-weight:600">'+y+'年'+m+'月</span>'
@@ -1192,9 +1197,10 @@ function renderCalendar(){
     +'<button class="btn btn-success" onclick="openBulkModal()">📅 曜日一括登録</button></div>'
     +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">'
     +['日','月','火','水','木','金','土'].map((d,i)=>'<div style="text-align:center;font-size:12px;font-weight:500;color:'+(i===0?'#c0392b':i===6?'#2c5282':'#888')+'">'+d+'</div>').join('')+'</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+cells+'</div>'
+    +'<div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>'
     +'<div id="cal-modal" style="margin-top:12px"></div>';
   document.getElementById('page-calendar').innerHTML=html;
+  renderCalendarGrid();
 }
 window.calY_M=function(d){calM+=d;if(calM<1){calM=12;calY--;}if(calM>12){calM=1;calY++;}renderCalendar();};
 window.openCalModal=function(ds){
@@ -1223,9 +1229,16 @@ window.addCalEvent=async function(){
   if(!date||!title){showNotice('日付とタイトルを入力してください','err');return;}
   calEvents.push({id:calEventNextId++,date,title,type});
   await fbSet('app/calEvents',{list:calEvents});
-  showNotice('追加しました');renderCalendar();
+  showNotice('追加しました');renderCalendarGrid();openCalModal(date);
 };
-window.deleteCalEvent=async function(id){calEvents=calEvents.filter(e=>e.id!==id);await fbSet('app/calEvents',{list:calEvents});showNotice('削除しました');renderCalendar();};
+window.deleteCalEvent=async function(id){
+  const ev=calEvents.find(e=>e.id===id);
+  const date=ev?ev.date:null;
+  calEvents=calEvents.filter(e=>e.id!==id);
+  await fbSet('app/calEvents',{list:calEvents});
+  showNotice('削除しました');renderCalendarGrid();
+  if(date)openCalModal(date);else closeCalModal();
+};
 window.changeKeyDuty=async function(ds){const sel=document.getElementById('duty-sel');if(!sel)return;const idx=keyDuty.findIndex(k=>k.date===ds);if(idx>=0)keyDuty[idx].member=sel.value;await fbSet('app/keyDuty',{members:keyMembers,duty:keyDuty});showNotice('変更しました');renderCalendar();renderKey();};
 window.addDutyOnDate=async function(ds){const sel=document.getElementById('duty-sel');if(!sel)return;keyDuty.push({date:ds,member:sel.value});keyDuty.sort((a,b)=>a.date.localeCompare(b.date));await fbSet('app/keyDuty',{members:keyMembers,duty:keyDuty});showNotice('設定しました');renderCalendar();renderKey();};
 window.openBulkModal=function(){
