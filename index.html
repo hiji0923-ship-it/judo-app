@@ -566,6 +566,46 @@ window.render=function(id){
 };
 
 
+// ===== ダッシュボード =====
+function renderDashboard(){
+  const el=document.getElementById('page-dashboard');if(!el)return;
+  const total=students.length;
+  const avgAtt=total?Math.round(students.reduce((s,st)=>s+(st.attendance||0),0)/total):0;
+  const avgProg=total?Math.round(students.reduce((s,st)=>s+calcProgress(st.id),0)/total):0;
+  let html='<div class="section-card"><div class="sec-title">📊 道場サマリー</div>'
+    +'<div class="stats-row">'
+    +'<div class="stat-cell"><div class="stat-label">生徒数</div><div class="stat-val sv-dk">'+total+'</div></div>'
+    +'<div class="stat-cell"><div class="stat-label">平均出席率</div><div class="stat-val sv-gr">'+avgAtt+'%</div></div>'
+    +'<div class="stat-cell"><div class="stat-label">平均習得率</div><div class="stat-val sv-gr">'+avgProg+'%</div></div>'
+    +'</div></div>';
+  html+='<div class="section-card"><div class="sec-title">👥 生徒一覧</div>';
+  students.forEach(s=>{
+    const pct=calcProgress(s.id);
+    const [bg,fg]=AVCOLORS[s.id%AVCOLORS.length];
+    html+='<div class="profile-card" style="margin-bottom:8px">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex:1">'
+      +'<div class="av" style="background:'+bg+';color:'+fg+'">'+s.name.split(' ').filter(w=>w).map(w=>w[0]).join('')+'</div>'
+      +'<div><div class="profile-name">'+s.name+'</div>'
+      +'<div class="profile-meta">'+s.belt+' / 在籍'+s.months+'ヶ月 / 出席'+s.attendance+'%</div></div></div>'
+      +'<div style="text-align:right"><div style="font-size:13px;font-weight:700;color:#10b981">'+pct+'%</div>'
+      +'<div style="font-size:11px;color:#aaa">習得率</div></div></div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ===== 生徒管理 =====
+function renderStudents(){
+  const el=document.getElementById('page-students');if(!el)return;
+  if(students.length===0){el.innerHTML='<div class="section-card"><div class="em">生徒がいません</div></div>';return;}
+  let sid=selStudentTab;
+  if(!students.find(s=>s.id===sid))sid=students[0].id;
+  selStudentTab=sid;
+  renderStudentTabsBar();
+  el.innerHTML='<div id="student-detail"></div>';
+  renderStudentDetail(sid);
+}
+
 // ===== 得意技・習得技取得 =====
 function getFavs(sid){
   const groups=getWazaGroups();
