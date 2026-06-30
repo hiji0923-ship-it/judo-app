@@ -5,12 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>越谷柔道会 管理システム</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-.screen{display:none}.screen.active{display:block}
-.page{display:none}.page.active{display:block}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:#f0ede8;min-height:100vh;color:#1a1a1a;font-size:14px}
 /* ===== LOGIN ===== */
 .login-bg{min-height:100vh;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);display:flex;align-items:center;justify-content:center;padding:1rem;position:relative;overflow:hidden}
@@ -233,7 +229,9 @@ input::placeholder{color:rgba(255,255,255,0.3);}
 </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ===== Firebase設定（ここを書き換えてください） =====
 const firebaseConfig = {
@@ -246,10 +244,10 @@ const firebaseConfig = {
 };
 // ===================================================
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-async function fbGet(p){try{const parts=p.split('/');const d=await db.collection(parts[0]).doc(parts[1]).get();return d.exists?d.data():null;}catch(e){console.error(e);return null;}}
-async function fbSet(p,data){try{const parts=p.split('/');await db.collection(parts[0]).doc(parts[1]).set(data,{merge:true});}catch(e){console.error('save error',e);showNotice('保存に失敗しました','err');}}
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+async function fbGet(p){try{const d=await getDoc(doc(db,...p.split('/')));return d.exists()?d.data():null;}catch(e){console.error(e);return null;}}
+async function fbSet(p,data){try{await setDoc(doc(db,...p.split('/')),data,{merge:true});}catch(e){console.error('save error',e);showNotice('保存に失敗しました','err');}}
 
 // ===== 定数 =====
 const BELT_COLORS = {
@@ -1164,7 +1162,7 @@ window.addPlanItem=async function(catId){const inp=document.getElementById('pnew
 window.addPlanCat=async function(){const n=prompt('カテゴリ名を入力してください');if(!n||!n.trim())return;planCats.push({id:planNextCatId++,name:n.trim(),ci:planNextCatId%CAT_COLORS.length,items:[]});await savePlanCats();renderPlan();showNotice('追加しました');};
 
 // ===== カレンダー =====
-function renderCalendarGrid(){
+function renderCalendar(){
   const y=calY,m=calM;
   const firstDay=new Date(y,m-1,1).getDay();
   const days=new Date(y,m,0).getDate();
@@ -1184,11 +1182,6 @@ function renderCalendarGrid(){
       +(duty?'<div style="font-size:10px;padding:1px 4px;border-radius:3px;background:#fef3c7;margin-top:2px">🔑'+duty.member+'</div>':'')
       +'</div>';
   }
-  const grid=document.getElementById('cal-grid');
-  if(grid)grid.innerHTML=cells;
-}
-function renderCalendar(){
-  const y=calY,m=calM;
   let html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">'
     +'<button class="btn" onclick="calY_M(-1)">◀</button>'
     +'<span style="font-size:16px;font-weight:600">'+y+'年'+m+'月</span>'
@@ -1197,10 +1190,9 @@ function renderCalendar(){
     +'<button class="btn btn-success" onclick="openBulkModal()">📅 曜日一括登録</button></div>'
     +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">'
     +['日','月','火','水','木','金','土'].map((d,i)=>'<div style="text-align:center;font-size:12px;font-weight:500;color:'+(i===0?'#c0392b':i===6?'#2c5282':'#888')+'">'+d+'</div>').join('')+'</div>'
-    +'<div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+cells+'</div>'
     +'<div id="cal-modal" style="margin-top:12px"></div>';
   document.getElementById('page-calendar').innerHTML=html;
-  renderCalendarGrid();
 }
 window.calY_M=function(d){calM+=d;if(calM<1){calM=12;calY--;}if(calM>12){calM=1;calY++;}renderCalendar();};
 window.openCalModal=function(ds){
@@ -1229,16 +1221,9 @@ window.addCalEvent=async function(){
   if(!date||!title){showNotice('日付とタイトルを入力してください','err');return;}
   calEvents.push({id:calEventNextId++,date,title,type});
   await fbSet('app/calEvents',{list:calEvents});
-  showNotice('追加しました');renderCalendarGrid();openCalModal(date);
+  showNotice('追加しました');renderCalendar();
 };
-window.deleteCalEvent=async function(id){
-  const ev=calEvents.find(e=>e.id===id);
-  const date=ev?ev.date:null;
-  calEvents=calEvents.filter(e=>e.id!==id);
-  await fbSet('app/calEvents',{list:calEvents});
-  showNotice('削除しました');renderCalendarGrid();
-  if(date)openCalModal(date);else closeCalModal();
-};
+window.deleteCalEvent=async function(id){calEvents=calEvents.filter(e=>e.id!==id);await fbSet('app/calEvents',{list:calEvents});showNotice('削除しました');renderCalendar();};
 window.changeKeyDuty=async function(ds){const sel=document.getElementById('duty-sel');if(!sel)return;const idx=keyDuty.findIndex(k=>k.date===ds);if(idx>=0)keyDuty[idx].member=sel.value;await fbSet('app/keyDuty',{members:keyMembers,duty:keyDuty});showNotice('変更しました');renderCalendar();renderKey();};
 window.addDutyOnDate=async function(ds){const sel=document.getElementById('duty-sel');if(!sel)return;keyDuty.push({date:ds,member:sel.value});keyDuty.sort((a,b)=>a.date.localeCompare(b.date));await fbSet('app/keyDuty',{members:keyMembers,duty:keyDuty});showNotice('設定しました');renderCalendar();renderKey();};
 window.openBulkModal=function(){
@@ -1444,94 +1429,11 @@ function renderMaster(){
 }
 window.toggleDemo=async function(val){showDemo=val;await fbSet('app/settings',{showDemo:val});updateDemoSection();renderMaster();showNotice('設定を保存しました');};
 
-// ===== 技グループ取得 =====
-function getWazaGroups(){
-  const groups=[];
-  planCats.forEach(cat=>{
-    if(cat.id===6&&cat.beltGroups){
-      cat.beltGroups.forEach(bg=>{
-        groups.push({catId:cat.id,name:bg.belt,items:bg.items||[]});
-      });
-    } else if(cat.items&&cat.items.length){
-      groups.push({catId:cat.id,name:cat.name,items:cat.items});
-    }
-  });
-  return groups;
-}
-
-// ===== ダッシュボード =====
-function renderDashboard(){
-  const el=document.getElementById('page-dashboard');if(!el)return;
-  const total=students.length;
-  const avgAtt=total?Math.round(students.reduce((s,st)=>s+(st.attendance||0),0)/total):0;
-  const avgProg=total?Math.round(students.reduce((s,st)=>s+calcProgress(st.id),0)/total):0;
-  let html='<div class="section-card"><div class="sec-title">📊 道場サマリー</div>'
-    +'<div class="stats-row">'
-    +'<div class="stat-cell"><div class="stat-label">生徒数</div><div class="stat-val sv-dk">'+total+'</div></div>'
-    +'<div class="stat-cell"><div class="stat-label">平均出席率</div><div class="stat-val sv-gr">'+avgAtt+'%</div></div>'
-    +'<div class="stat-cell"><div class="stat-label">平均習得率</div><div class="stat-val sv-gr">'+avgProg+'%</div></div>'
-    +'</div></div>';
-  html+='<div class="section-card"><div class="sec-title">👥 生徒一覧</div>';
-  students.forEach(s=>{
-    const pct=calcProgress(s.id);
-    const [bg,fg]=AVCOLORS[s.id%AVCOLORS.length];
-    html+='<div class="profile-card" style="margin-bottom:8px">'
-      +'<div style="display:flex;align-items:center;gap:10px;flex:1">'
-      +'<div class="av" style="background:'+bg+';color:'+fg+'">'+s.name.split(' ').filter(w=>w).map(w=>w[0]).join('')+'</div>'
-      +'<div><div class="profile-name">'+s.name+'</div>'
-      +'<div class="profile-meta">'+s.belt+' / 在籍'+s.months+'ヶ月 / 出席'+(s.attendance||0)+'%</div></div></div>'
-      +'<div style="text-align:right"><div style="font-size:13px;font-weight:700;color:#10b981">'+pct+'%</div>'
-      +'<div style="font-size:11px;color:#aaa">習得率</div></div></div>';
-  });
-  html+='</div>';
-  el.innerHTML=html;
-}
-
-// ===== 生徒管理 =====
-function renderStudents(){
-  const el=document.getElementById('page-students');if(!el)return;
-  if(students.length===0){el.innerHTML='<div class="section-card"><div class="em">生徒がいません</div></div>';return;}
-  let sid=selStudentTab;
-  if(!students.find(s=>s.id===sid))sid=students[0].id;
-  selStudentTab=sid;
-  renderStudentTabsBar();
-  if(!el.querySelector('#student-detail')){
-    el.innerHTML='<div id="student-detail"></div>';
-  }
-  renderStudentDetail(sid);
-}
-
-// ===== カリキュラム =====
-function renderCurriculum(){
-  const el=document.getElementById('page-curriculum');if(!el)return;
-  let html='<div class="section-card"><div class="sec-title">📅 カリキュラム</div>';
-  if(!curriculum||curriculum.length===0){
-    html+='<div class="em">カリキュラムが登録されていません</div>';
-  } else {
-    html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
-      +'<thead><tr style="background:#f5f4f0">'
-      +'<th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e8e6e0">日付</th>'
-      +'<th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e8e6e0">テーマ</th>'
-      +'<th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e8e6e0">内容</th></tr></thead><tbody>';
-    curriculum.forEach((c,i)=>{
-      html+='<tr style="border-bottom:1px solid #f0ede8'+(i%2===0?';background:#fff':';background:#fafaf8')+'">'
-        +'<td style="padding:8px 12px;white-space:nowrap">'+c.date+'</td>'
-        +'<td style="padding:8px 12px;font-weight:600">'+c.theme+'</td>'
-        +'<td style="padding:8px 12px;color:#555">'+c.content+'</td></tr>';
-    });
-    html+='</tbody></table></div>';
-  }
-  html+='</div>';
-  el.innerHTML=html;
-}
-
 // ===== 起動 =====
-(async()=>{
 await loadAll();
 updateDemoSection();
 showScreen('login');
 showLoading(false);
-})();
 </script>
 </body>
 </html>
